@@ -11,6 +11,7 @@ import com.academy.dto.SearchHistoryDto;
 import com.academy.service.SearchHistoryService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/search-history")
 @RequiredArgsConstructor
 @Tag(name = "Search History", description = "API per visualizzare la cronologia delle ricerche")
+@SecurityRequirement(name = "bearerAuth")
 public class SearchHistoryController {
 
     private final SearchHistoryService searchHistoryService;

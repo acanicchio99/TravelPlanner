@@ -14,7 +14,11 @@ import com.academy.dto.TripSummaryDto;
 import com.academy.dto.TripUpdateDto;
 import com.academy.entity.Trip;
 import com.academy.entity.TripStop;
+import com.academy.entity.User;
+import com.academy.exception.ResourceNotFoundException;
+import com.academy.exception.UnauthorizedException;
 import com.academy.repository.TripRepository;
+import com.academy.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,19 +27,25 @@ import lombok.RequiredArgsConstructor;
 public class TripService {
 
     private final TripRepository tripRepository;
+    private final UserRepository userRepository;
 
     @Transactional
-    public TripResponseDto createTrip(TripCreateDto tripDto) {
+    public TripResponseDto createTrip(TripCreateDto tripDto, String username) {
         // Validate dates
         if (tripDto.getEndDate().isBefore(tripDto.getStartDate())) {
             throw new IllegalArgumentException("End date must be after start date");
         }
+
+        // Recupera l'utente autenticato
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Utente", "username", username));
 
         Trip trip = Trip.builder()
                 .name(tripDto.getName())
                 .startDate(tripDto.getStartDate())
                 .endDate(tripDto.getEndDate())
                 .description(tripDto.getDescription())
+                .user(user)
                 .build();
 
         Trip savedTrip = tripRepository.save(trip);
@@ -43,24 +53,37 @@ public class TripService {
     }
 
     @Transactional(readOnly = true)
-    public List<TripSummaryDto> getAllTrips() {
-        List<Trip> trips = tripRepository.findAll();
+    public List<TripSummaryDto> getAllTrips(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Utente", "username", username));
+        
+        List<Trip> trips = tripRepository.findAll().stream()
+                .filter(trip -> trip.getUser() != null && trip.getUser().getId().equals(user.getId()))
+                .collect(Collectors.toList());
+        
         return trips.stream()
                 .map(this::convertToSummaryDto)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public TripResponseDto getTripById(Long tripId) {
+    public TripResponseDto getTripById(Long tripId, String username) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "tripId", tripId));
+        
+        // Verifica che il trip appartenga all'utente autenticato
+        validateTripOwnership(trip, username);
+        
         return convertToResponseDto(trip);
     }
 
     @Transactional
-    public TripResponseDto updateTrip(Long tripId, TripUpdateDto tripDto) {
+    public TripResponseDto updateTrip(Long tripId, TripUpdateDto tripDto, String username) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "tripId", tripId));
+        
+        // Verifica che il trip appartenga all'utente autenticato
+        validateTripOwnership(trip, username);
 
         if (tripDto.getName() != null) {
             trip.setName(tripDto.getName());
@@ -85,10 +108,23 @@ public class TripService {
     }
 
     @Transactional
-    public void deleteTrip(Long tripId) {
+    public void deleteTrip(Long tripId, String username) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "tripId", tripId));
+        
+        // Verifica che il trip appartenga all'utente autenticato
+        validateTripOwnership(trip, username);
+        
         tripRepository.delete(trip);
+    }
+    
+    /**
+     * Verifica che il trip appartenga all'utente specificato
+     */
+    private void validateTripOwnership(Trip trip, String username) {
+        if (trip.getUser() == null || !trip.getUser().getUsername().equals(username)) {
+            throw new UnauthorizedException("Non hai i permessi per accedere a questo viaggio");
+        }
     }
 
     private TripResponseDto convertToResponseDto(Trip trip) {

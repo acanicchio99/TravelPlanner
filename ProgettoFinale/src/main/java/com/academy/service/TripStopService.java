@@ -12,6 +12,8 @@ import com.academy.dto.TripStopUpdateDto;
 import com.academy.entity.City;
 import com.academy.entity.Trip;
 import com.academy.entity.TripStop;
+import com.academy.exception.ResourceNotFoundException;
+import com.academy.exception.UnauthorizedException;
 import com.academy.repository.CityRepository;
 import com.academy.repository.TripRepository;
 import com.academy.repository.TripStopRepository;
@@ -28,15 +30,18 @@ public class TripStopService {
     private final CityRepository cityRepository;
 
     @Transactional
-    public TripStopResponseDto addStopToTrip(Long tripId, TripStopCreateDto stopDto) {
+    public TripStopResponseDto addStopToTrip(Long tripId, TripStopCreateDto stopDto, String username) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "tripId", tripId));
+        
+        // Verifica che il trip appartenga all'utente autenticato
+        validateTripOwnership(trip, username);
 
         // Validate visit date is within trip date range
         TripValidationUtils.validateStopDateInTripRange(stopDto.getVisitDate(), trip);
 
         City city = cityRepository.findById(stopDto.getCityId())
-                .orElseThrow(() -> new RuntimeException("City not found: " + stopDto.getCityId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Città", "cityId", stopDto.getCityId()));
 
         TripStop tripStop = TripStop.builder()
                 .trip(trip)
@@ -51,10 +56,13 @@ public class TripStopService {
     }
 
     @Transactional(readOnly = true)
-    public List<TripStopResponseDto> getStopsByTrip(Long tripId) {
+    public List<TripStopResponseDto> getStopsByTrip(Long tripId, String username) {
         // Verify trip exists
-        tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "tripId", tripId));
+        
+        // Verifica che il trip appartenga all'utente autenticato
+        validateTripOwnership(trip, username);
 
         List<TripStop> stops = tripStopRepository.findByTripTripIdOrderByOrderInTripAsc(tripId);
         return stops.stream()
@@ -63,21 +71,24 @@ public class TripStopService {
     }
 
     @Transactional
-    public TripStopResponseDto updateStop(Long tripId, Long stopId, TripStopUpdateDto stopDto) {
+    public TripStopResponseDto updateStop(Long tripId, Long stopId, TripStopUpdateDto stopDto, String username) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "tripId", tripId));
+        
+        // Verifica che il trip appartenga all'utente autenticato
+        validateTripOwnership(trip, username);
 
         TripStop stop = tripStopRepository.findById(stopId)
-                .orElseThrow(() -> new RuntimeException("Stop not found: " + stopId));
+                .orElseThrow(() -> new ResourceNotFoundException("TripStop", "stopId", stopId));
 
         // Verify stop belongs to the trip
         if (!stop.getTrip().getTripId().equals(tripId)) {
-            throw new RuntimeException("Stop does not belong to this trip");
+            throw new IllegalArgumentException("La tappa non appartiene a questo viaggio");
         }
 
         if (stopDto.getCityId() != null) {
             City city = cityRepository.findById(stopDto.getCityId())
-                    .orElseThrow(() -> new RuntimeException("City not found: " + stopDto.getCityId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Città", "cityId", stopDto.getCityId()));
             stop.setCity(city);
         }
 
@@ -99,20 +110,32 @@ public class TripStopService {
     }
 
     @Transactional
-    public void deleteStop(Long tripId, Long stopId) {
+    public void deleteStop(Long tripId, Long stopId, String username) {
         // Verify trip exists
-        tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "tripId", tripId));
+        
+        // Verifica che il trip appartenga all'utente autenticato
+        validateTripOwnership(trip, username);
 
         TripStop stop = tripStopRepository.findById(stopId)
-                .orElseThrow(() -> new RuntimeException("Stop not found: " + stopId));
+                .orElseThrow(() -> new ResourceNotFoundException("TripStop", "stopId", stopId));
 
         // Verify stop belongs to the trip
         if (!stop.getTrip().getTripId().equals(tripId)) {
-            throw new RuntimeException("Stop does not belong to this trip");
+            throw new IllegalArgumentException("La tappa non appartiene a questo viaggio");
         }
 
         tripStopRepository.delete(stop);
+    }
+    
+    /**
+     * Verifica che il trip appartenga all'utente specificato
+     */
+    private void validateTripOwnership(Trip trip, String username) {
+        if (trip.getUser() == null || !trip.getUser().getUsername().equals(username)) {
+            throw new UnauthorizedException("Non hai i permessi per accedere a questo viaggio");
+        }
     }
 
     private TripStopResponseDto convertToResponseDto(TripStop stop) {
