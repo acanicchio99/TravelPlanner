@@ -23,8 +23,8 @@ jobs:
         cache: maven
 
     - name: Run tests
-      run: mvn -B test --file ProgettoFinale/pom.xml
-      working-directory: .
+      run: mvn -B clean test
+      working-directory: ProgettoFinale
 
     - name: Generate test report
       if: always()
@@ -33,7 +33,7 @@ jobs:
         name: Maven Tests Results
         path: ProgettoFinale/target/surefire-reports/*.xml
         reporter: java-junit
-        fail-on-error: true
+        fail-on-error: false
 
     - name: Upload test results
       if: always()
