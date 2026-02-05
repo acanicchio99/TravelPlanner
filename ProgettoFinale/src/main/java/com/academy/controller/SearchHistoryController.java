@@ -3,11 +3,13 @@ package com.academy.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.academy.dto.SearchHistoryDto;
+import com.academy.security.CustomUserDetails;
 import com.academy.service.SearchHistoryService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,9 +28,10 @@ public class SearchHistoryController {
 
     @GetMapping
     @Operation(summary = "Visualizza cronologia ricerche", 
-               description = "Restituisce tutte le ricerche effettuate dagli utenti con data, termine cercato e numero risultati")
-    public ResponseEntity<List<SearchHistoryDto>> getAllSearchHistory() {
-        List<SearchHistoryDto> history = searchHistoryService.getAllSearchHistory();
+               description = "Restituisce le ricerche effettuate dall'utente autenticato con data, termine cercato e numero risultati")
+    public ResponseEntity<List<SearchHistoryDto>> getAllSearchHistory(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        List<SearchHistoryDto> history = searchHistoryService.getAllSearchHistory(userDetails.getUsername());
         return ResponseEntity.ok(history);
     }
 }

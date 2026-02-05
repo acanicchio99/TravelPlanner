@@ -8,7 +8,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.academy.dto.SearchHistoryDto;
 import com.academy.entity.SearchHistory;
+import com.academy.entity.User;
+import com.academy.exception.ResourceNotFoundException;
 import com.academy.repository.SearchHistoryRepository;
+import com.academy.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,10 +20,14 @@ import lombok.RequiredArgsConstructor;
 public class SearchHistoryService {
 
     private final SearchHistoryRepository searchHistoryRepository;
+    private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public List<SearchHistoryDto> getAllSearchHistory() {
-        List<SearchHistory> history = searchHistoryRepository.findAll();
+    public List<SearchHistoryDto> getAllSearchHistory(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Utente", "username", username));
+        
+        List<SearchHistory> history = searchHistoryRepository.findByUserOrderBySearchedAtDesc(user);
         return history.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());

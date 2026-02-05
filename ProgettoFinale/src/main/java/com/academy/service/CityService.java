@@ -3,6 +3,8 @@ package com.academy.service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,8 +14,10 @@ import com.academy.dto.TagDto;
 import com.academy.dto.WeatherDto;
 import com.academy.entity.City;
 import com.academy.entity.SearchHistory;
+import com.academy.entity.User;
 import com.academy.repository.CityRepository;
 import com.academy.repository.SearchHistoryRepository;
+import com.academy.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +27,7 @@ public class CityService {
 
     private final CityRepository cityRepository;
     private final SearchHistoryRepository searchHistoryRepository;
+    private final UserRepository userRepository;
     private final WeatherService weatherService;
 
     @Transactional
@@ -30,12 +35,24 @@ public class CityService {
         // Cerca le città
         List<City> cities = cityRepository.findByNomeContainingIgnoreCase(name);
         
-        // Salva nella search history
-        SearchHistory searchHistory = SearchHistory.builder()
-                .searchTerm(name)
-                .resultsCount(cities.size())
-                .build();
-        searchHistoryRepository.save(searchHistory);
+        // Recupera l'utente autenticato
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User currentUser = null;
+        
+        if (principal instanceof UserDetails) {
+            String username = ((UserDetails) principal).getUsername();
+            currentUser = userRepository.findByUsername(username).orElse(null);
+        }
+        
+        // Salva nella search history se l'utente è autenticato
+        if (currentUser != null) {
+            SearchHistory searchHistory = SearchHistory.builder()
+                    .user(currentUser)
+                    .searchTerm(name)
+                    .resultsCount(cities.size())
+                    .build();
+            searchHistoryRepository.save(searchHistory);
+        }
         
         // Converti in DTO
         return cities.stream()

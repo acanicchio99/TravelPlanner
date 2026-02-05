@@ -18,6 +18,7 @@ import com.academy.service.PoiService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/cities")
 @RequiredArgsConstructor
 @Tag(name = "City", description = "API per la gestione e ricerca delle città")
+@SecurityRequirement(name = "bearerAuth")
 public class CityController {
 
     private final CityService cityService;
