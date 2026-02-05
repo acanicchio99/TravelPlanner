@@ -23,14 +23,15 @@ jobs:
         cache: maven
 
     - name: Run tests
-      run: mvn -B test --file pom.xml
+      run: mvn -B test --file ProgettoFinale/pom.xml
+      working-directory: .
 
     - name: Generate test report
       if: always()
       uses: dorny/test-reporter@v1
       with:
         name: Maven Tests Results
-        path: target/surefire-reports/*.xml
+        path: ProgettoFinale/target/surefire-reports/*.xml
         reporter: java-junit
         fail-on-error: true
 
@@ -39,5 +40,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-results
-        path: target/surefire-reports/
+        path: ProgettoFinale/target/surefire-reports/
         retention-days: 30
