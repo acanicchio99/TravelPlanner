@@ -3,6 +3,7 @@ package com.academy.controller;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +20,7 @@ import com.academy.dto.TripResponseDto;
 import com.academy.dto.TripSummaryDto;
 import com.academy.dto.TripUpdateDto;
 import com.academy.security.CustomUserDetails;
+import com.academy.service.CsvExportService;
 import com.academy.service.TripService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 public class TripController {
 
     private final TripService tripService;
+    private final CsvExportService csvExportService;
 
     @PostMapping
     @Operation(summary = "Crea un nuovo viaggio", 
@@ -88,5 +91,24 @@ public class TripController {
             @PathVariable Long tripId) {
         tripService.deleteTrip(tripId, userDetails.getUsername());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{tripId}/export/csv")
+    @Operation(summary = "Esporta un viaggio in CSV", 
+               description = "Esporta i dettagli di un viaggio (incluse tutte le tappe) in formato CSV. Solo il proprietario può esportare il viaggio.")
+    public ResponseEntity<byte[]> exportTripCsv(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Parameter(description = "ID del viaggio")
+            @PathVariable Long tripId) {
+        byte[] csvData = csvExportService.generateTripCsv(tripId, userDetails.getUsername());
+        
+        // Recupera il nome del viaggio per il filename
+        TripResponseDto trip = tripService.getTripById(tripId, userDetails.getUsername());
+        String filename = trip.getName().replaceAll("[^a-zA-Z0-9._\\- ]", "").trim() + ".csv";
+        
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csvData);
     }
 }
